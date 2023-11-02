@@ -37,20 +37,40 @@ fn main() -> Result<(), Box<dyn Error>> {
     let client: Client = reqwest::blocking::Client::new();
 
     let start_time: time::Instant = time::Instant::now();
+    let mut ac_index: Vec<usize> = vec![];
 
+    let mut submission_count: u32 = 0;
     for i in 0..json_obj["result"].as_array().unwrap().len() {
         if json_obj["result"][i]["verdict"].as_str().unwrap().eq("OK"){
+            ac_index.push(i);
+            submission_count += 1;
+        }
+    }
+
+    println!("Total Accepted submssion: {}", submission_count);
+
+    for (pos, i) in ac_index.iter().enumerate() {
+        if json_obj["result"][i]["verdict"].as_str().unwrap().eq("OK"){
+
             let contest_id: u64 = json_obj["result"][i]["contestId"].as_u64().unwrap();
             let submission_id: u64 = json_obj["result"][i]["id"].as_u64().unwrap();
             let html_file_path: PathBuf = Path::new(&env.html_path).join(format!("{submission_id}.html"));
 
-            println!("File #{}: {} from {} contest", i, submission_id, contest_id);
+            if Path::new(&html_file_path).exists() {
+                continue;
+            }
+
+            println!("File #{}: {} from contest {}.", pos, submission_id, contest_id);
             let result: Response = client.get(format!("https://codeforces.com/contest/{contest_id}/submission/{submission_id}"))
                 .send()?;
+            if !result.status().is_success() {
+                println!("Got {} at {}, stopping the process.", result.status(), submission_id);
+                break;
+            }
             fs::write(html_file_path, result.text()?)?;
 
-            thread::sleep(time::Duration::from_secs(2));
-            println!("Total time (File #{}): {:?}", i, start_time.elapsed());
+            thread::sleep(time::Duration::from_secs(10));
+            println!("Total time (File #{}): {:?}", pos, start_time.elapsed());
         }
     }
     Ok(())
