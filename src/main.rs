@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use std::thread;
 use std::time;
 use reqwest::blocking::Response;
+use reqwest::blocking::Client;
 use serde_json;
 
 struct Config {
@@ -25,9 +26,7 @@ fn read_config() -> Result<Config, Box<dyn Error>> {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    println!("Hello, world!");
     let env: Config = read_config()?;
-    println!("{} {}", env.cf_api_key, env.cf_api_secret);
 
     if !Path::new(&env.html_path).exists() {
         fs::create_dir_all(&env.html_path)?;
@@ -35,7 +34,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let data: String = fs::read_to_string(env.submission_json_path)?;
     let json_obj: serde_json::Value = serde_json::from_str(&data)?;
-    let client = reqwest::blocking::Client::new();
+    let client: Client = reqwest::blocking::Client::new();
+
+    let start_time: time::Instant = time::Instant::now();
 
     for i in 0..json_obj["result"].as_array().unwrap().len() {
         if json_obj["result"][i]["verdict"].as_str().unwrap().eq("OK"){
@@ -49,7 +50,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             fs::write(html_file_path, result.text()?)?;
 
             thread::sleep(time::Duration::from_secs(2));
-            break;
+            println!("Total time (File #{}): {:?}", i, start_time.elapsed());
         }
     }
     Ok(())
