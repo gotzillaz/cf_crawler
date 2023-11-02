@@ -38,6 +38,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let start_time: time::Instant = time::Instant::now();
     let mut ac_index: Vec<usize> = vec![];
+    let mut retry_count: u32 = 0;
 
     let mut submission_count: u32 = 0;
     for i in 0..json_obj["result"].as_array().unwrap().len() {
@@ -61,16 +62,26 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
 
             println!("File #{}: {} from contest {}.", pos, submission_id, contest_id);
-            let result: Response = client.get(format!("https://codeforces.com/contest/{contest_id}/submission/{submission_id}"))
-                .send()?;
-            if !result.status().is_success() {
-                println!("Got {} at {}, stopping the process.", result.status(), submission_id);
-                break;
-            }
+            let result: Response = loop {
+                let res = client.get(format!("https://codeforces.com/contest/{contest_id}/submission/{submission_id}"))
+                    .send()?;
+                if res.status().is_success() {
+                    break res;
+                }
+                else {
+                    retry_count += 1;
+                    if retry_count > 3 {
+                        panic!("Failed to continue (Attempt = {})", retry_count);
+                    }
+                    println!("Got {} at {}, waiting the process for 15 minutes (Attempt #{}).", res.status(), submission_id, retry_count);
+                    thread::sleep(time::Duration::from_secs(60*15));
+                }
+            };
             fs::write(html_file_path, result.text()?)?;
 
-            thread::sleep(time::Duration::from_secs(10));
+            thread::sleep(time::Duration::from_secs(15));
             println!("Total time (File #{}): {:?}", pos, start_time.elapsed());
+            retry_count = 0;
         }
     }
     Ok(())
