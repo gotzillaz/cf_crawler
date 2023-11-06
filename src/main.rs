@@ -7,6 +7,7 @@ use std::time;
 use reqwest::blocking::Response;
 use reqwest::blocking::Client;
 use serde_json;
+use rand::Rng;
 
 struct Config {
     cf_api_key: String,
@@ -49,6 +50,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     println!("Total Accepted submssion: {}", submission_count);
+    let mut rng = rand::thread_rng();
 
     for (pos, i) in ac_index.iter().enumerate() {
         if json_obj["result"][i]["verdict"].as_str().unwrap().eq("OK"){
@@ -79,7 +81,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             };
             fs::write(html_file_path, result.text()?)?;
 
-            thread::sleep(time::Duration::from_secs(15));
+            thread::sleep(time::Duration::from_secs(rng.gen_range(5..15)));
             println!("Total time (File #{}): {:?}", pos, start_time.elapsed());
             retry_count = 0;
         }
